@@ -72,9 +72,12 @@ public class BridgeIngestionService {
             Transaction tx = settlement.settle(instruction, packetHash, bridgeNodeId, hopCount);
             return IngestResult.settled(packetHash, tx);
 
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid payment instruction: {}", e.getMessage());
+            return IngestResult.invalid("?", "validation_failed: " + e.getMessage());
         } catch (Exception e) {
             log.error("Ingestion error: {}", e.getMessage(), e);
-            return IngestResult.invalid("?", "internal_error: " + e.getMessage());
+            return IngestResult.invalid("?", "internal_error");
         }
     }
 
