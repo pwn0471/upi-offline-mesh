@@ -3,6 +3,7 @@ package com.demo.upimesh.model;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 /**
  * Simulated bank account. In a real system this would live in the bank's core,
@@ -20,6 +21,10 @@ public class Account {
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal balance;
+
+    @JsonIgnore
+    @Column(name = "pin_hash", nullable = false)
+    private String pinHash;
 
     @Version  // Optimistic locking — prevents lost updates on concurrent transfers
     private Long version;
@@ -43,4 +48,13 @@ public class Account {
 
     public Long getVersion() { return version; }
     public void setVersion(Long version) { this.version = version; }
+
+    @JsonIgnore
+    public String getPinHash() {
+        return pinHash;
+    }
+
+    public void setPinHash(String pinHash) {
+        this.pinHash = pinHash;
+    }
 }

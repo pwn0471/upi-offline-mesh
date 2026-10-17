@@ -21,6 +21,7 @@ public class PaymentInstruction {
     private String receiverVpa;
     private BigDecimal amount;
     private String pinHash;
+    private String pin;
     private String nonce;     // UUID, unique per payment intent
     private Long signedAt;    // epoch millis, when sender signed
 
@@ -47,6 +48,14 @@ public class PaymentInstruction {
 
     public String getPinHash() { return pinHash; }
     public void setPinHash(String pinHash) { this.pinHash = pinHash; }
+
+    public String getPin() {
+        return pin;
+    }
+
+    public void setPin(String pin) {
+        this.pin = pin;
+    }
 
     public String getNonce() { return nonce; }
     public void setNonce(String nonce) { this.nonce = nonce; }

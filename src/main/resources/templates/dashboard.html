@@ -87,23 +87,21 @@
         <div>
             <span class="step-num">1</span><strong>Compose payment</strong> (simulates sender phone)
             <br>
-            <select id="senderVpa">
-                <option>alice@demo</option>
-                <option>bob@demo</option>
-                <option>carol@demo</option>
-                <option>dave@demo</option>
 
+            <select id="senderVpa">
+                <option value="">Loading accounts...</option>
             </select>
             →
             <select id="receiverVpa">
-                <option>bob@demo</option>
-                <option>carol@demo</option>
-                <option>alice@demo</option>
-                <option>dave@demo</option>
+                <option value="">Loading accounts...</option>
             </select>
-            ₹<input type="number" id="amount" value="500" style="width: 100px">
-            PIN <input type="text" id="pin" value="1234" style="width: 80px" maxlength="4">
+            ₹<input type="number" id="amount" placeholder="Amount"
+                    min="0.01" step="0.01" required style="width: 110px">
+            PIN <input type="password" id="pin" placeholder="4-digit PIN"
+                       inputmode="numeric" pattern="[0-9]{4}"
+                       maxlength="4" required style="width: 120px">
             <button onclick="sendPacket()">📤 Inject into Mesh</button>
+
         </div>
 
         <div style="margin-top: 16px">
@@ -156,90 +154,164 @@
 </div>
 
 <script>
-function log(msg) {
-    const el = document.getElementById('log');
-    el.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg + '\n' + el.textContent;
-}
 
-async function refresh() {
-    // Mesh state
-    const m = await fetch('/api/mesh/state').then(r => r.json());
-    const devicesDiv = document.getElementById('devices');
-    devicesDiv.innerHTML = m.devices.map(d => `
-        <div class="device ${d.hasInternet ? 'bridge' : 'offline'}">
-            <strong>${d.deviceId}</strong>
-            <span class="badge ${d.hasInternet ? 'badge-online' : 'badge-offline'}">
-                ${d.hasInternet ? '🌐 4G' : '🚫 OFFLINE'}
-            </span>
-            <span class="small">holding ${d.packetCount} packet(s)</span>
-            <div>${d.packetIds.map(id => `<span class="packet-id">${id}</span>`).join('')}</div>
-        </div>
-    `).join('');
-    document.getElementById('cacheInfo').textContent =
-        `Idempotency cache size: ${m.idempotencyCacheSize}`;
 
-    // Accounts
-    const accs = await fetch('/api/accounts').then(r => r.json());
-    document.querySelector('#accounts-table tbody').innerHTML = accs.map(a => `
-        <tr><td>${a.vpa}</td><td>${a.holderName}</td>
-            <td class="balance">₹${parseFloat(a.balance).toFixed(2)}</td></tr>
-    `).join('');
+    async function loadAccounts() {
+        const response = await fetch('/api/accounts');
 
-    // Transactions
-    const txs = await fetch('/api/transactions').then(r => r.json());
-    document.querySelector('#tx-table tbody').innerHTML = txs.map(t => `
-        <tr>
-            <td>${t.id}</td><td>${t.senderVpa}</td><td>${t.receiverVpa}</td>
-            <td class="balance">₹${parseFloat(t.amount).toFixed(2)}</td>
-            <td class="status-${t.status}">${t.status}</td>
-            <td>${t.bridgeNodeId}</td><td>${t.hopCount}</td>
-            <td class="small">${new Date(t.settledAt).toLocaleTimeString()}</td>
-        </tr>
-    `).join('');
-}
+        if (!response.ok) {
+            throw new Error('Failed to load accounts');
+        }
 
-async function sendPacket() {
-    const body = {
-        senderVpa: document.getElementById('senderVpa').value,
-        receiverVpa: document.getElementById('receiverVpa').value,
-        amount: parseFloat(document.getElementById('amount').value),
-        pin: document.getElementById('pin').value,
-        ttl: 5,
-        startDevice: 'phone-alice'
-    };
-    const r = await fetch('/api/demo/send', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(body)
-    }).then(r => r.json());
-    log(`📤 Packet ${r.packetId.substring(0,8)} encrypted & injected at ${r.injectedAt} (TTL ${r.ttl})`);
-    log(`   ciphertext (truncated): ${r.ciphertextPreview}`);
-    refresh();
-}
+        const accounts = await response.json();
 
-async function gossip() {
-    const r = await fetch('/api/mesh/gossip', {method: 'POST'}).then(r => r.json());
-    log(`🔄 Gossip: ${r.transfers} transfer(s) — ${JSON.stringify(r.deviceCounts)}`);
-    refresh();
-}
+        const senderSelect = document.getElementById('senderVpa');
+        const receiverSelect = document.getElementById('receiverVpa');
 
-async function flushBridges() {
-    const r = await fetch('/api/mesh/flush', {method: 'POST'}).then(r => r.json());
-    log(`📡 ${r.uploadsAttempted} bridge upload(s):`);
-    r.results.forEach(res => {
-        log(`   ${res.bridgeNode} packet ${res.packetId} → ${res.outcome}` +
-            (res.reason ? ` (${res.reason})` : ''));
+        senderSelect.innerHTML = '';
+        receiverSelect.innerHTML = '';
+
+        accounts.forEach(account => {
+            const label = `${account.holderName} (${account.vpa})`;
+
+            senderSelect.add(new Option(label, account.vpa));
+            receiverSelect.add(new Option(label, account.vpa));
+        });
+
+        // Choose different accounts by default when possible.
+        if (accounts.length > 1) {
+            receiverSelect.selectedIndex = 1;
+        }
+    }
+
+    function log(msg) {
+        const el = document.getElementById('log');
+        el.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg + '\n' + el.textContent;
+    }
+
+    async function refresh() {
+        // Mesh state
+        const m = await fetch('/api/mesh/state').then(r => r.json());
+        const devicesDiv = document.getElementById('devices');
+        devicesDiv.innerHTML = m.devices.map(d => `
+            <div class="device ${d.hasInternet ? 'bridge' : 'offline'}">
+                <strong>${d.deviceId}</strong>
+                <span class="badge ${d.hasInternet ? 'badge-online' : 'badge-offline'}">
+                    ${d.hasInternet ? '🌐 4G' : '🚫 OFFLINE'}
+                </span>
+                <span class="small">holding ${d.packetCount} packet(s)</span>
+                <div>${d.packetIds.map(id => `<span class="packet-id">${id}</span>`).join('')}</div>
+            </div>
+        `).join('');
+        document.getElementById('cacheInfo').textContent =
+            `Idempotency cache size: ${m.idempotencyCacheSize}`;
+
+        // Accounts
+        const accs = await fetch('/api/accounts').then(r => r.json());
+        document.querySelector('#accounts-table tbody').innerHTML = accs.map(a => `
+            <tr><td>${a.vpa}</td><td>${a.holderName}</td>
+                <td class="balance">₹${parseFloat(a.balance).toFixed(2)}</td></tr>
+        `).join('');
+
+        // Transactions
+        const txs = await fetch('/api/transactions').then(r => r.json());
+        document.querySelector('#tx-table tbody').innerHTML = txs.map(t => `
+            <tr>
+                <td>${t.id}</td><td>${t.senderVpa}</td><td>${t.receiverVpa}</td>
+                <td class="balance">₹${parseFloat(t.amount).toFixed(2)}</td>
+                <td class="status-${t.status}">${t.status}</td>
+                <td>${t.bridgeNodeId}</td><td>${t.hopCount}</td>
+                <td class="small">${new Date(t.settledAt).toLocaleTimeString()}</td>
+            </tr>
+        `).join('');
+    }
+
+
+    async function sendPacket() {
+        const senderVpa = document.getElementById('senderVpa').value;
+        const receiverVpa = document.getElementById('receiverVpa').value;
+        const amount = Number(document.getElementById('amount').value);
+        const pin = document.getElementById('pin').value;
+
+        if (!senderVpa || !receiverVpa) {
+            log('Please select both sender and receiver accounts.');
+            return;
+        }
+
+        if (senderVpa === receiverVpa) {
+            log('Sender and receiver must be different accounts.');
+            return;
+        }
+
+        if (!Number.isFinite(amount) || amount <= 0) {
+            log('Please enter an amount greater than zero.');
+            return;
+        }
+
+        if (!/^\d{4}$/.test(pin)) {
+            log('Please enter a valid 4-digit PIN.');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/demo/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    senderVpa,
+                    receiverVpa,
+                    amount,
+                    pin,
+                    ttl: 5,
+                    startDevice: 'phone-alice'
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Request failed (${response.status})`);
+            }
+
+            const result = await response.json();
+
+            log(`Packet ${result.packetId.substring(0, 8)} encrypted and injected at ${result.injectedAt} (TTL ${result.ttl})`);
+            log(`Ciphertext (truncated): ${result.ciphertextPreview}`);
+
+            document.getElementById('pin').value = '';
+            refresh();
+        } catch (error) {
+            log('Payment request failed: ' + error.message);
+        }
+    }
+
+
+    async function gossip() {
+        const r = await fetch('/api/mesh/gossip', {method: 'POST'}).then(r => r.json());
+        log(`🔄 Gossip: ${r.transfers} transfer(s) — ${JSON.stringify(r.deviceCounts)}`);
+        refresh();
+    }
+
+    async function flushBridges() {
+        const r = await fetch('/api/mesh/flush', {method: 'POST'}).then(r => r.json());
+        log(`📡 ${r.uploadsAttempted} bridge upload(s):`);
+        r.results.forEach(res => {
+            log(`   ${res.bridgeNode} packet ${res.packetId} → ${res.outcome}` +
+                (res.reason ? ` (${res.reason})` : ''));
+        });
+        refresh();
+    }
+
+    async function resetMesh() {
+        await fetch('/api/mesh/reset', {method: 'POST'});
+        log('🗑 mesh + idempotency cache cleared');
+        refresh();
+    }
+
+    loadAccounts().catch(error => {
+        log('Error loading accounts: ' + error.message);
     });
-    refresh();
-}
 
-async function resetMesh() {
-    await fetch('/api/mesh/reset', {method: 'POST'});
-    log('🗑 mesh + idempotency cache cleared');
     refresh();
-}
-
-refresh();
-setInterval(refresh, 3000);
+    setInterval(refresh, 3000);
 </script>
 </body>
 </html>

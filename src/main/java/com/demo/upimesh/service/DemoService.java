@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.math.BigDecimal;
 import java.security.MessageDigest;
@@ -27,20 +28,61 @@ public class DemoService {
 
     private static final Logger log = LoggerFactory.getLogger(DemoService.class);
 
+    private final BCryptPasswordEncoder passwordEncoder =
+            new BCryptPasswordEncoder();
+
     @Autowired private AccountRepository accounts;
     @Autowired private HybridCryptoService crypto;
     @Autowired private ServerKeyHolder serverKey;
 
+
     @PostConstruct
     public void seedAccounts() {
         if (accounts.count() == 0) {
-            accounts.save(new Account("alice@demo", "Alice",   new BigDecimal("5000.00")));
-            accounts.save(new Account("bob@demo",   "Bob",     new BigDecimal("1000.00")));
-            accounts.save(new Account("carol@demo", "Carol",   new BigDecimal("2500.00")));
-            accounts.save(new Account("dave@demo",  "Dave",    new BigDecimal("500.00")));
+            accounts.save(createDemoAccount(
+                    "alice@demo", "Alice", "1234", "5000.00"));
+            accounts.save(createDemoAccount(
+                    "bob@demo", "Bob", "2345", "1000.00"));
+            accounts.save(createDemoAccount(
+                    "carol@demo", "Carol", "3456", "2500.00"));
+            accounts.save(createDemoAccount(
+                    "dave@demo", "Dave", "4567", "500.00"));
+
             log.info("Seeded 4 demo accounts");
+        } else {
+            for (Account account : accounts.findAll()) {
+                if (account.getPinHash() == null
+                        || account.getPinHash().isBlank()) {
+                    String demoPin = switch (account.getVpa()) {
+                        case "alice@demo" -> "1234";
+                        case "bob@demo" -> "2345";
+                        case "carol@demo" -> "3456";
+                        case "dave@demo" -> "4567";
+                        default -> null;
+                    };
+
+                    if (demoPin == null) {
+                        log.warn("No demo PIN assigned to account {}",
+                                account.getVpa());
+                        continue;
+                    }
+
+                    account.setPinHash(passwordEncoder.encode(demoPin));
+                    accounts.save(account);
+                }
+            }
+            log.info("Initialized missing demo account PIN hashes");
         }
     }
+
+    private Account createDemoAccount(
+            String vpa, String holderName, String pin, String balance) {
+        Account account = new Account(
+                vpa, holderName, new BigDecimal(balance));
+        account.setPinHash(passwordEncoder.encode(pin));
+        return account;
+    }
+
 
     /**
      * Simulates the sender's phone:
@@ -58,10 +100,11 @@ public class DemoService {
                 senderVpa,
                 receiverVpa,
                 amount,
-                sha256Hex(pin),
-                UUID.randomUUID().toString(),       // nonce — guarantees uniqueness
-                Instant.now().toEpochMilli()        // signedAt — for freshness check
+                null,
+                UUID.randomUUID().toString(),
+                Instant.now().toEpochMilli()
         );
+        instruction.setPin(pin);
 
         String ciphertext = crypto.encrypt(instruction, serverKey.getPublicKey());
 

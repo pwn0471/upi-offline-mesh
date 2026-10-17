@@ -1,5 +1,8 @@
 package com.demo.upimesh.service;
 
+import com.demo.upimesh.model.Account;
+import com.demo.upimesh.model.AccountRepository;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import com.demo.upimesh.crypto.HybridCryptoService;
 import com.demo.upimesh.model.MeshPacket;
 import com.demo.upimesh.model.PaymentInstruction;
@@ -32,6 +35,11 @@ public class BridgeIngestionService {
     @Autowired private HybridCryptoService crypto;
     @Autowired private IdempotencyService idempotency;
     @Autowired private SettlementService settlement;
+
+    @Autowired private AccountRepository accounts;
+
+    private final BCryptPasswordEncoder passwordEncoder =
+            new BCryptPasswordEncoder();
 
     @Value("${upi.mesh.packet-max-age-seconds:86400}")
     private long maxAgeSeconds;
@@ -69,8 +77,27 @@ public class BridgeIngestionService {
             }
 
             // ---- Settle ----
-            Transaction tx = settlement.settle(instruction, packetHash, bridgeNodeId, hopCount);
+
+            // ---- Verify sender PIN ----
+            Account sender = accounts.findById(instruction.getSenderVpa())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Unknown sender VPA"));
+
+            String pin = instruction.getPin();
+
+            if (pin == null || !pin.matches("\\d{4}")
+                    || sender.getPinHash() == null
+                    || !passwordEncoder.matches(pin, sender.getPinHash())) {
+                log.warn("PIN verification failed for sender {}",
+                        instruction.getSenderVpa());
+                return IngestResult.invalid(packetHash, "invalid_pin");
+            }
+
+            // ---- Settle ----
+            Transaction tx = settlement.settle(
+                    instruction, packetHash, bridgeNodeId, hopCount);
             return IngestResult.settled(packetHash, tx);
+
 
         } catch (IllegalArgumentException e) {
             log.warn("Invalid payment instruction: {}", e.getMessage());
