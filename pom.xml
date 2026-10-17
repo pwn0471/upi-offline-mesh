@@ -12,9 +12,9 @@
     </parent>
 
     <groupId>com.demo</groupId>
-    <artifactId>upi-offline-mesh</artifactId>
+    <artifactId>MeshPay</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>upi-offline-mesh</name>
+    <name>Offline digital payment prototype using simulated mesh networking</name>
     <description>Offline UPI via Bluetooth Mesh - Demo Backend</description>
 
     <properties>

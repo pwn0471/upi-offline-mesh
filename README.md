@@ -1,9 +1,14 @@
-# UPI Offline Mesh — Demo
+# MeshPay - Offline Payment
 
-A Spring Boot application demonstrating **mesh-routed deferred payment settlement**. An encrypted payment packet travels between simulated offline devices and is uploaded by a bridge device when it has internet access. The backend checks the packet, verifies the sender's PIN, detects duplicate deliveries, and settles valid payments in a MySQL ledger.
+<p align="center">
+  <img src="src/main/resources/static/images/meshpay-logo.png"
+       alt="MeshPay Logo"
+       width="180">
+</p>
 
-This repository contains the Spring Boot backend and a software mesh simulator. It does not use real Bluetooth hardware or connect to the real UPI network.
-
+<p align="center">
+  An Offline Digital Payment System Using Simulated Mesh Networking
+</p>
 ## Table of Contents
 
 1. [Project overview](#project-overview)

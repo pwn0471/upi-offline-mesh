@@ -2,7 +2,8 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>UPI Offline Mesh — Demo</title>
+    <link rel="icon" type="image/png" href="/images/meshpay-logo.png">
+    <title>MeshPay — Offline Payment</title>
     <style>
         * { box-sizing: border-box; }
         body {
@@ -71,11 +72,47 @@
         }
         .balance { font-family: 'Consolas', monospace; color: #56d364; font-weight: 600; }
         .small { font-size: 12px; color: #8b949e; }
+
+        .brand-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.brand-logo {
+    width: 90px;
+    height: 90px;
+    object-fit: contain;
+}
+
+.brand-header h1 {
+    margin: 0;
+}
+
+@media (max-width: 600px) {
+    .brand-logo {
+        width: 64px;
+        height: 64px;
+    }
+
+    .brand-header {
+        gap: 10px;
+    }
+}
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>📡 UPI Offline Mesh — Live Demo</h1>
+    <div class="brand-header">
+        <img
+                src="/images/meshpay-logo.png"
+                alt="MeshPay Logo"
+                class="brand-logo"
+        />
+        <h1>MeshPay — Offline Payments</h1>
+    </div>
     <p class="small">
         Send money in a basement with zero internet. Encrypted packets gossip from phone to phone
         until one with 4G reaches the backend.
